@@ -13,7 +13,8 @@ public class CreateEventRequestValidator : AbstractValidator<CreateEventRequest>
 
         RuleFor(x => x.Date)
             .NotEmpty().WithMessage("La fecha del evento es obligatoria")
-            .GreaterThan(DateTime.UtcNow).WithMessage("La fecha del evento debe ser futura");
+            .Must(date => date.ToUniversalTime() > DateTime.UtcNow)
+            .WithMessage("La fecha del evento debe ser futura");
 
         RuleFor(x => x.Location)
             .NotEmpty().WithMessage("El lugar del evento es obligatorio")

@@ -3,6 +3,8 @@ using MassTransit;
 using NotificationService.Infrastructure.Data;
 using NotificationService.Infrastructure.Email;
 using NotificationService.Infrastructure.Consumers;
+using EventService.Domain.Events;
+using EventService.Domain.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +23,15 @@ builder.Services.AddSwaggerGen(c =>
 // Database
 var connectionString = builder.Configuration.GetConnectionString("NotificationDb");
 builder.Services.AddDbContext<NotificationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        // Configurar el esquema para la tabla de historial de migraciones
+        npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "notifications");
+        // Especificar el assembly donde están las migraciones
+        npgsqlOptions.MigrationsAssembly(typeof(NotificationDbContext).Assembly.GetName().Name);
+    });
+});
 
 // Email Service
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -29,7 +39,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // MassTransit (RabbitMQ) - Consumer
 builder.Services.AddMassTransit(x =>
 {
-    // Registrar consumer
+    // Registrar consumer que acepta el tipo EventCreated local
     x.AddConsumer<EventCreatedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
@@ -40,9 +50,21 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration["RabbitMQ:Password"] ?? "admin123");
         });
 
+        // Configurar nombre de contrato personalizado para EventCreated
+        // Debe coincidir con el nombre usado en EventService
+        cfg.Message<EventCreated>(e =>
+        {
+            e.SetEntityName("EventCreated");
+        });
+
         // Configurar consumer con reintentos y DLQ
         cfg.ReceiveEndpoint("event-created-queue", e =>
         {
+            // Bind al exchange "EventCreated" para recibir mensajes publicados
+            // El exchange se crea con el nombre del contrato configurado arriba
+            e.Bind("EventCreated");
+            
+            // Configurar el consumer que acepta EventCreated
             e.ConfigureConsumer<EventCreatedConsumer>(context);
             
             // Configurar reintentos
@@ -52,8 +74,8 @@ builder.Services.AddMassTransit(x =>
                 maxInterval: TimeSpan.FromSeconds(10),
                 intervalDelta: TimeSpan.FromSeconds(2)));
 
-            // Configurar DLQ (Dead Letter Queue) - MassTransit lo maneja automáticamente
-            // Los mensajes fallidos después de N reintentos van a la cola _error
+            // Configurar DLQ (Dead Letter Queue) explícitamente con nombre personalizado
+            e.BindDeadLetterQueue("event-created-dlq");
         });
     });
 });
@@ -92,8 +114,18 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
-        db.Database.Migrate();
-        app.Logger.LogInformation("Migraciones de NotificationService aplicadas correctamente");
+        var pendingMigrations = db.Database.GetPendingMigrations().ToList();
+        
+        if (pendingMigrations.Any())
+        {
+            app.Logger.LogInformation($"Aplicando {pendingMigrations.Count} migración(es) pendiente(s): {string.Join(", ", pendingMigrations)}");
+            db.Database.Migrate();
+            app.Logger.LogInformation("Migraciones de NotificationService aplicadas correctamente");
+        }
+        else
+        {
+            app.Logger.LogInformation("No hay migraciones pendientes. Base de datos actualizada.");
+        }
     }
     catch (Exception ex)
     {

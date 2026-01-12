@@ -42,7 +42,20 @@ public class EventsController : ControllerBase
         var validationResult = await _validator.ValidateAsync(request);
         if (!validationResult.IsValid)
         {
-            return BadRequest(validationResult.Errors);
+            // Retornar errores en formato estructurado
+            var errors = validationResult.Errors.Select(e => new
+            {
+                propertyName = e.PropertyName,
+                errorMessage = e.ErrorMessage,
+                attemptedValue = e.AttemptedValue
+            }).ToList();
+            
+            return BadRequest(new
+            {
+                error = "Error de validación",
+                message = "Los datos proporcionados no son válidos",
+                details = errors
+            });
         }
 
         try

@@ -110,30 +110,84 @@ export default function EventRegistrationForm({ token }: EventRegistrationFormPr
       return;
     }
 
+    // Validar token antes de enviar la petición
+    const { getValidToken, clearToken } = await import('@/utils/auth');
+    const validToken = getValidToken();
+    
+    if (!validToken) {
+      setError('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+      clearToken();
+      // Recargar para mostrar el formulario de login
+      setTimeout(() => window.location.reload(), 2000);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8070/api/events', {
+      // Convertir la fecha local a UTC antes de enviar
+      const dateToSend = formData.date 
+        ? new Date(formData.date).toISOString() 
+        : '';
+
+      // Usar la API route de Next.js que actúa como proxy
+      const response = await fetch('/api/events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${validToken}`
         },
         body: JSON.stringify({
           name: formData.name,
-          date: formData.date,
+          date: dateToSend,
           location: formData.location,
           zones: formData.zones.map(zone => ({
             name: zone.name,
-            price: zone.price,
-            capacity: zone.capacity
+            price: parseFloat(zone.price.toString()),
+            capacity: parseInt(zone.capacity.toString())
           }))
         })
       });
 
       if (!response.ok) {
+        // Si es 401, el token puede haber expirado
+        if (response.status === 401 || response.status === 403) {
+          const { clearToken } = await import('@/utils/auth');
+          clearToken();
+          setError('Tu sesión ha expirado o no tienes permisos. Por favor, inicia sesión nuevamente.');
+          setTimeout(() => window.location.reload(), 2000);
+          return;
+        }
+        
+        // Manejar errores de validación (400)
+        if (response.status === 400) {
+          const errorData = await response.json().catch(() => ({ message: 'Error al crear el evento' }));
+          
+          // Si hay detalles de validación, mostrar los mensajes específicos
+          if (errorData.details && Array.isArray(errorData.details)) {
+            const validationMessages = errorData.details
+              .map((detail: any) => `${detail.property || ''}: ${detail.error || detail.errorMessage || ''}`)
+              .filter((msg: string) => msg)
+              .join(', ');
+            
+            setError(validationMessages || errorData.message || 'Error de validación. Por favor, revisa los datos ingresados.');
+          } else if (errorData.message) {
+            setError(errorData.message);
+          } else if (Array.isArray(errorData) && errorData.length > 0) {
+            // Formato de FluentValidation directo
+            const validationMessages = errorData
+              .map((err: any) => `${err.propertyName || ''}: ${err.errorMessage || ''}`)
+              .filter((msg: string) => msg)
+              .join(', ');
+            setError(validationMessages || 'Error de validación. Por favor, revisa los datos ingresados.');
+          } else {
+            setError(errorData.error || 'Error de validación. Por favor, revisa los datos ingresados.');
+          }
+          return;
+        }
+        
         const errorData = await response.json().catch(() => ({ message: 'Error al crear el evento' }));
-        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        throw new Error(errorData.message || errorData.error || `Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -172,7 +226,7 @@ export default function EventRegistrationForm({ token }: EventRegistrationFormPr
             id="name"
             value={formData.name}
             onChange={(e) => handleInputChange('name', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
             required
           />
         </div>
@@ -187,7 +241,7 @@ export default function EventRegistrationForm({ token }: EventRegistrationFormPr
             id="date"
             value={formData.date}
             onChange={(e) => handleInputChange('date', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
             required
           />
         </div>
@@ -202,7 +256,7 @@ export default function EventRegistrationForm({ token }: EventRegistrationFormPr
             id="location"
             value={formData.location}
             onChange={(e) => handleInputChange('location', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
             required
           />
         </div>
@@ -247,7 +301,7 @@ export default function EventRegistrationForm({ token }: EventRegistrationFormPr
                       type="text"
                       value={zone.name}
                       onChange={(e) => handleZoneChange(zone.id, 'name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
                       required
                     />
                   </div>
@@ -262,7 +316,7 @@ export default function EventRegistrationForm({ token }: EventRegistrationFormPr
                       min="0"
                       value={zone.price}
                       onChange={(e) => handleZoneChange(zone.id, 'price', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
                       required
                     />
                   </div>
@@ -276,7 +330,7 @@ export default function EventRegistrationForm({ token }: EventRegistrationFormPr
                       min="1"
                       value={zone.capacity}
                       onChange={(e) => handleZoneChange(zone.id, 'capacity', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
                       required
                     />
                   </div>

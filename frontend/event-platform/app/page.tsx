@@ -3,27 +3,69 @@
 import { useState, useEffect } from 'react';
 import EventRegistrationForm from '@/components/EventRegistrationForm';
 import LoginForm from '@/components/LoginForm';
+import AuthGuard from '@/components/AuthGuard';
+import { hasValidToken, clearToken, isTokenExpired, saveToken } from '@/utils/auth';
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Verificar si hay token guardado
-    const savedToken = localStorage.getItem('jwt_token');
-    if (savedToken) {
-      setToken(savedToken);
-    }
-  }, []);
+    // Verificar si hay token guardado y si es válido
+    const checkToken = () => {
+      const savedToken = localStorage.getItem('jwt_token');
+      
+      if (savedToken) {
+        // Verificar si el token ha expirado
+        if (isTokenExpired(savedToken)) {
+          // Token expirado, limpiar
+          clearToken();
+          setToken(null);
+        } else {
+          // Token válido
+          setToken(savedToken);
+        }
+      } else {
+        setToken(null);
+      }
+      
+      setIsChecking(false);
+    };
+
+    checkToken();
+
+    // Verificar periódicamente si el token ha expirado (cada minuto)
+    const interval = setInterval(() => {
+      if (token && isTokenExpired(token)) {
+        clearToken();
+        setToken(null);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [token]);
 
   const handleLogin = (newToken: string) => {
-    localStorage.setItem('jwt_token', newToken);
+    saveToken(newToken);
     setToken(newToken);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt_token');
+    clearToken();
     setToken(null);
   };
+
+  // Mostrar loading mientras se verifica el token
+  if (isChecking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -45,7 +87,9 @@ export default function Home() {
         {!token ? (
           <LoginForm onLogin={handleLogin} />
         ) : (
-          <EventRegistrationForm token={token} />
+          <AuthGuard>
+            <EventRegistrationForm token={token} />
+          </AuthGuard>
         )}
       </div>
     </div>

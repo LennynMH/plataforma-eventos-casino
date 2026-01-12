@@ -9,21 +9,14 @@ using NotificationService.Infrastructure.Data;
 using NotificationService.Infrastructure.Email;
 using Polly;
 using Polly.Retry;
+using EventService.Domain.Events;
 
 namespace NotificationService.Infrastructure.Consumers;
 
-// Contrato del mensaje (debe coincidir con EventService)
-public class EventCreatedMessage
-{
-    public Guid MessageId { get; set; }
-    public Guid EventId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public DateTime OccurredAt { get; set; }
-    public Guid CorrelationId { get; set; }
-    public int Version { get; set; } = 1;
-}
-
-public class EventCreatedConsumer : IConsumer<EventCreatedMessage>
+// Consumer que procesa mensajes EventCreated del exchange "EventCreated"
+// El tipo EventCreated está definido en EventCreatedMessage.cs con el mismo namespace
+// que EventService para que MassTransit pueda hacer match correctamente
+public class EventCreatedConsumer : IConsumer<EventCreated>
 {
     private readonly NotificationDbContext _context;
     private readonly IEmailService _emailService;
@@ -53,7 +46,7 @@ public class EventCreatedConsumer : IConsumer<EventCreatedMessage>
                 });
     }
 
-    public async Task Consume(ConsumeContext<EventCreatedMessage> context)
+    public async Task Consume(ConsumeContext<EventCreated> context)
     {
         var message = context.Message;
         

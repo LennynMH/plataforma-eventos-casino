@@ -11,12 +11,14 @@ public class EventDbContext : DbContext
 
     public DbSet<Event> Events { get; set; }
     public DbSet<Zone> Zones { get; set; }
+    // se agregará con migración EF Core cuando sea necesario
+    //public DbSet<TestTable> TestTables { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Configurar schema
+        // Configurar schema por defecto
         modelBuilder.HasDefaultSchema("events");
 
         // Configurar Event
@@ -46,5 +48,14 @@ public class EventDbContext : DbContext
             entity.Property(z => z.Capacity).IsRequired();
             entity.Property(z => z.CreatedAt).IsRequired();
         });
+
+        //// Configurar TestTable
+        //modelBuilder.Entity<TestTable>(entity =>
+        //{
+        //    entity.HasKey(t => t.Id);
+        //    entity.Property(t => t.TestName).IsRequired().HasMaxLength(200);
+        //    entity.Property(t => t.Description).HasMaxLength(500);
+        //    entity.Property(t => t.CreatedAt).IsRequired();
+        //});
     }
 }

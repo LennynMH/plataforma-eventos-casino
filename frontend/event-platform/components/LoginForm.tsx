@@ -18,7 +18,8 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8070/api/auth/login', {
+      // Usar la API route de Next.js que actúa como proxy
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -27,10 +28,15 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Error al iniciar sesión');
+        const errorData = await response.json().catch(() => ({ error: 'Error al iniciar sesión' }));
+        throw new Error(errorData.error || 'Error al iniciar sesión');
       }
 
       const data = await response.json();
+      if (!data.token) {
+        throw new Error('Token no recibido en la respuesta');
+      }
+
       onLogin(data.token);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
@@ -55,7 +61,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             id="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
             placeholder="admin o user"
             required
           />
@@ -70,7 +76,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             id="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-text-black"
             required
           />
         </div>

@@ -63,11 +63,16 @@ public class AuthController : ControllerBase
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        // Obtener tiempo de expiración desde configuración (default: 24 horas)
+        var expirationHours = int.TryParse(jwtSettings["ExpirationHours"], out var hours) 
+            ? hours 
+            : 24;
+        
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(24),
+            expires: DateTime.UtcNow.AddHours(expirationHours),
             signingCredentials: creds
         );
 

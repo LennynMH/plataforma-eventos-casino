@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # PostgreSQL para EventService
+  postgres-events:
+    image: postgres:16-alpine
+    container_name: postgres-events
+    environment:
+      POSTGRES_DB: eventdb
+      POSTGRES_USER: eventuser
+      POSTGRES_PASSWORD: eventpass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-events-data:/var/lib/postgresql/data
+      - ./scripts/db/init-events.sql:/docker-entrypoint-initdb.d/init-events.sql
+    networks:
+      - plataforma-eventos
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventuser -d eventdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL para NotificationService
+  postgres-notifications:
+    image: postgres:16-alpine
+    container_name: postgres-notifications
+    environment:
+      POSTGRES_DB: notificationdb
+      POSTGRES_USER: notificationuser
+      POSTGRES_PASSWORD: notificationpass123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-notifications-data:/var/lib/postgresql/data
+      - ./scripts/db/init-notifications.sql:/docker-entrypoint-initdb.d/init-notifications.sql
+    networks:
+      - plataforma-eventos
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notificationuser -d notificationdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - plataforma-eventos
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - plataforma-eventos
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # EventService API
+  event-service:
+    build:
+      context: ./backend/EventService
+      dockerfile: Dockerfile
+    container_name: event-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8070
+      - ConnectionStrings__EventDb=Host=postgres-events;Port=5432;Database=eventdb;Username=eventuser;Password=eventpass123
+      - ConnectionStrings__Redis=redis:6379
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - JWT__SecretKey=YourSuperSecretKeyForJWTTokenGeneration12345678901234567890
+      - JWT__Issuer=EventService
+      - JWT__Audience=EventService
+    ports:
+      - "8070:8070"
+    depends_on:
+      postgres-events:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - plataforma-eventos
+
+  # NotificationService API
+  notification-service:
+    build:
+      context: ./backend/NotificationService
+      dockerfile: Dockerfile
+    container_name: notification-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8071
+      - ConnectionStrings__NotificationDb=Host=postgres-notifications;Port=5432;Database=notificationdb;Username=notificationuser;Password=notificationpass123
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - Email__SmtpHost=smtp.gmail.com
+      - Email__SmtpPort=587
+      - Email__SmtpUsername=your-email@gmail.com
+      - Email__SmtpPassword=your-app-password
+      - Email__FromEmail=noreply@eventplatform.com
+      - Email__FromName=Plataforma de Eventos
+    ports:
+      - "8071:8071"
+    depends_on:
+      postgres-notifications:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - plataforma-eventos
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend/event-platform
+      dockerfile: Dockerfile
+    container_name: frontend
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://event-service:8070
+    ports:
+      - "3002:3000"
+    depends_on:
+      event-service:
+        condition: service_started
+    networks:
+      - plataforma-eventos
+
+volumes:
+  postgres-events-data:
+  postgres-notifications-data:
+  rabbitmq-data:
+  redis-data:
+
+networks:
+  plataforma-eventos:
+    driver: bridge

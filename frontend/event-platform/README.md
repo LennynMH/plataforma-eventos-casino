@@ -23,6 +23,18 @@ cd frontend/event-platform
 npm install
 ```
 
+## Configuración
+
+Crea un archivo `.env.local` en la raíz del proyecto con la siguiente configuración:
+
+```env
+# URL del backend API
+# Para desarrollo local
+API_URL=http://localhost:8070
+```
+
+**Nota:** En Docker, la variable `API_URL` se configura automáticamente mediante `docker-compose.yml`.
+
 ## Desarrollo
 
 ```bash
@@ -30,6 +42,8 @@ npm run dev
 ```
 
 La aplicación estará disponible en `http://localhost:3000`
+
+**Importante:** Asegúrate de que el backend (EventService) esté corriendo en `http://localhost:8070` antes de iniciar el frontend.
 
 ## Credenciales de Demo
 
@@ -55,8 +69,15 @@ frontend/event-platform/
 - `POST /api/auth/login` - Iniciar sesión
 - `POST /api/events` - Crear evento (requiere token JWT)
 
+## Variables de Entorno
+
+| Variable | Descripción | Valor por defecto (desarrollo) |
+|----------|-------------|--------------------------------|
+| `API_URL` | URL del backend API | `http://localhost:8070` |
+
 ## Notas
 
 - El token JWT se guarda en `localStorage`
-- La aplicación se conecta a `http://localhost:8070` (EventService)
-- Para producción, actualizar las URLs en `next.config.ts` y los componentes
+- La aplicación se conecta al backend mediante la variable `API_URL`
+- En desarrollo local, crear `.env.local` con `API_URL=http://localhost:8070`
+- En Docker, la variable se configura automáticamente en `docker-compose.yml`

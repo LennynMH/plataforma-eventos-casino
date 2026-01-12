@@ -1,0 +1,449 @@
+{
+	"info": {
+		"_postman_id": "plataforma-eventos-casino-2026",
+		"name": "Plataforma Eventos Casino - API Collection",
+		"description": "Colección completa de APIs para EventService y NotificationService",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "EventService",
+			"item": [
+				{
+					"name": "Auth",
+					"item": [
+						{
+							"name": "Login - Admin",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    var jsonData = pm.response.json();",
+											"    pm.environment.set(\"jwt_token\", jsonData.token);",
+											"    console.log(\"Token guardado en variable de entorno\");",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin\"\n}"
+								},
+								"url": {
+									"raw": "{{event_service_url}}/api/auth/login",
+									"host": [
+										"{{event_service_url}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								},
+								"description": "Iniciar sesión como administrador y obtener token JWT. El token se guarda automáticamente en la variable de entorno `jwt_token`."
+							},
+							"response": []
+						},
+						{
+							"name": "Login - User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    var jsonData = pm.response.json();",
+											"    pm.environment.set(\"jwt_token\", jsonData.token);",
+											"    console.log(\"Token guardado en variable de entorno\");",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"username\": \"user\",\n    \"password\": \"user\"\n}"
+								},
+								"url": {
+									"raw": "{{event_service_url}}/api/auth/login",
+									"host": [
+										"{{event_service_url}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								},
+								"description": "Iniciar sesión como usuario regular y obtener token JWT. El token se guarda automáticamente en la variable de entorno `jwt_token`."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Events",
+					"item": [
+						{
+							"name": "Crear Evento",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Concierto de Rock 2026\",\n    \"date\": \"2026-02-15T20:00:00Z\",\n    \"location\": \"Estadio Nacional\",\n    \"zones\": [\n        {\n            \"name\": \"VIP\",\n            \"price\": 150.00,\n            \"capacity\": 100\n        },\n        {\n            \"name\": \"General\",\n            \"price\": 50.00,\n            \"capacity\": 500\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{event_service_url}}/api/events",
+									"host": [
+										"{{event_service_url}}"
+									],
+									"path": [
+										"api",
+										"events"
+									]
+								},
+								"description": "Crear un nuevo evento con sus zonas. **Requiere rol Admin.**\n\n**Validaciones:**\n- Nombre: obligatorio, máximo 200 caracteres\n- Fecha: obligatoria, debe ser futura\n- Lugar: obligatorio, máximo 500 caracteres\n- Zonas: al menos una zona requerida\n  - Nombre: obligatorio, máximo 100 caracteres\n  - Precio: >= 0\n  - Capacidad: > 0"
+							},
+							"response": []
+						},
+						{
+							"name": "Listar Eventos",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{event_service_url}}/api/events?page=1&pageSize=10",
+									"host": [
+										"{{event_service_url}}"
+									],
+									"path": [
+										"api",
+										"events"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "1",
+											"description": "Número de página (default: 1)"
+										},
+										{
+											"key": "pageSize",
+											"value": "10",
+											"description": "Tamaño de página (default: 10)"
+										}
+									]
+								},
+								"description": "Listar eventos con paginación. **Requiere rol User o Admin.**\n\nLos resultados están cacheados en Redis por 5 minutos."
+							},
+							"response": []
+						},
+						{
+							"name": "Obtener Evento por ID",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{jwt_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{event_service_url}}/api/events/{{event_id}}",
+									"host": [
+										"{{event_service_url}}"
+									],
+									"path": [
+										"api",
+										"events",
+										"{{event_id}}"
+									]
+								},
+								"description": "Obtener el detalle de un evento específico por su ID. **Requiere rol User o Admin.**\n\n**Nota:** Reemplaza `{{event_id}}` con un ID válido de evento."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Health",
+					"item": [
+						{
+							"name": "Health Check",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{event_service_url}}/health",
+									"host": [
+										"{{event_service_url}}"
+									],
+									"path": [
+										"health"
+									]
+								},
+								"description": "Verificar el estado de salud del servicio EventService."
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"description": "APIs del servicio EventService (Puerto 8070)"
+		},
+		{
+			"name": "NotificationService",
+			"item": [
+				{
+					"name": "Notifications",
+					"item": [
+						{
+							"name": "Listar Notificaciones",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{notification_service_url}}/api/notifications?page=1&pageSize=10&status=",
+									"host": [
+										"{{notification_service_url}}"
+									],
+									"path": [
+										"api",
+										"notifications"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "1",
+											"description": "Número de página (default: 1)"
+										},
+										{
+											"key": "pageSize",
+											"value": "10",
+											"description": "Tamaño de página (default: 10)"
+										},
+										{
+											"key": "status",
+											"value": "",
+											"description": "Filtro opcional por status: Sent, Failed, Pending",
+											"disabled": true
+										}
+									]
+								},
+								"description": "Listar logs de notificaciones con paginación.\n\n**Filtros opcionales:**\n- `status`: Filtrar por estado (Sent, Failed, Pending)"
+							},
+							"response": []
+						},
+						{
+							"name": "Obtener Notificación por ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{notification_service_url}}/api/notifications/{{notification_id}}",
+									"host": [
+										"{{notification_service_url}}"
+									],
+									"path": [
+										"api",
+										"notifications",
+										"{{notification_id}}"
+									]
+								},
+								"description": "Obtener el detalle de una notificación específica por su ID.\n\n**Nota:** Reemplaza `{{notification_id}}` con un ID válido de notificación."
+							},
+							"response": []
+						},
+						{
+							"name": "Listar Notificaciones Fallidas",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{notification_service_url}}/api/notifications/failed?page=1&pageSize=10",
+									"host": [
+										"{{notification_service_url}}"
+									],
+									"path": [
+										"api",
+										"notifications",
+										"failed"
+									],
+									"query": [
+										{
+											"key": "eventId",
+											"value": "",
+											"description": "Filtro opcional por EventId",
+											"disabled": true
+										},
+										{
+											"key": "startDate",
+											"value": "",
+											"description": "Fecha de inicio (ISO 8601)",
+											"disabled": true
+										},
+										{
+											"key": "endDate",
+											"value": "",
+											"description": "Fecha de fin (ISO 8601)",
+											"disabled": true
+										},
+										{
+											"key": "page",
+											"value": "1",
+											"description": "Número de página (default: 1)"
+										},
+										{
+											"key": "pageSize",
+											"value": "10",
+											"description": "Tamaño de página (default: 10)"
+										}
+									]
+								},
+								"description": "Listar notificaciones fallidas con filtros opcionales.\n\n**Filtros disponibles:**\n- `eventId`: Filtrar por ID de evento\n- `startDate`: Fecha de inicio (ISO 8601)\n- `endDate`: Fecha de fin (ISO 8601)"
+							},
+							"response": []
+						},
+						{
+							"name": "Estadísticas de Notificaciones Fallidas",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{notification_service_url}}/api/notifications/failed/statistics?startDate=&endDate=",
+									"host": [
+										"{{notification_service_url}}"
+									],
+									"path": [
+										"api",
+										"notifications",
+										"failed",
+										"statistics"
+									],
+									"query": [
+										{
+											"key": "startDate",
+											"value": "",
+											"description": "Fecha de inicio (ISO 8601). Default: últimos 7 días",
+											"disabled": true
+										},
+										{
+											"key": "endDate",
+											"value": "",
+											"description": "Fecha de fin (ISO 8601). Default: ahora",
+											"disabled": true
+										}
+									]
+								},
+								"description": "Obtener estadísticas de notificaciones fallidas.\n\n**Retorna:**\n- Total de notificaciones\n- Cantidad de fallidas\n- Cantidad de exitosas\n- Tasa de éxito (%)\n- Top 10 errores más comunes\n\n**Por defecto:** Últimos 7 días"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Health",
+					"item": [
+						{
+							"name": "Health Check",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{notification_service_url}}/health",
+									"host": [
+										"{{notification_service_url}}"
+									],
+									"path": [
+										"health"
+									]
+								},
+								"description": "Verificar el estado de salud del servicio NotificationService."
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"description": "APIs del servicio NotificationService (Puerto 8071)"
+		}
+	],
+	"variable": [
+		{
+			"key": "event_service_url",
+			"value": "http://localhost:8070",
+			"type": "string"
+		},
+		{
+			"key": "notification_service_url",
+			"value": "http://localhost:8071",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "event_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "notification_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

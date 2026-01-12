@@ -34,7 +34,10 @@ public class SensitiveDataLoggingMiddleware
             context.Request.Path,
             context.Response.StatusCode);
 
+        // Restaurar el stream original y copiar el contenido
+        responseBody.Seek(0, SeekOrigin.Begin);
         await responseBody.CopyToAsync(originalBodyStream);
+        context.Response.Body = originalBodyStream;
     }
 
     private static bool IsSensitiveHeader(string headerName)
